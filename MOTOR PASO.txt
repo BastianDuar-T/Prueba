@@ -1,0 +1,112 @@
+;/*Nombre: Juan David Pinilla Fajardo
+ ; Microprocesadores 1
+ ;  Blink LED: Este codigo, permite el parpadeo
+  ;   de un led a traves del puerto B usando el 
+   ;  bit RB1*/
+#include "p16f877a.inc" ;Incluye la libreria asociada
+			; al microcontrolador 
+
+ __CONFIG _FOSC_XT & _WDTE_OFF & _PWRTE_ON & _BOREN_ON & _LVP_OFF & _CPD_OFF & _WRT_OFF & _CP_OFF
+ 
+;***********************************************************
+;Selección de Bancos
+;Se usa una macro para facilitar el cambio
+;de los bancos solamente con llamarlos por
+;el nombre.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;***************************************************************************************************
+BANK0	    MACRO		    ;Habilita la creación de un programa pequeño
+	    BCF STATUS,RP0	    ;Ponemos bit RP0 en 0
+	    BCF STATUS,RP1	    ;Ponemos bit RP1 en 0
+	    ENDM		    ;Finaliza Macros
+	    
+BANK1	    MACRO
+	    BSF STATUS,RP0
+	    BCF STATUS,RP1
+	    ENDM
+	    
+BANK2	    MACRO
+	    BCF STATUS, RP0
+	    BSF STATUS, RP1
+	    ENDM
+	    
+BANK3	    MACRO
+	    BSF STATUS, RP0
+	    BSF STATUS, RP1
+	    ENDM
+	    
+;*****************************************************************************************************
+	    
+CONTA3	EQU	0X20;Crear los registros
+CONTA2	EQU	0X21; y almacenarlos en 
+CONTA1	EQU	0X22; los registros de 
+		    ;propósito general del
+		    ;Banco 0
+NPASO EQU   0X23
+AUX1  EQU   0X24
+AUX2  EQU   0X25
+;EL CONTADOR DE PROGRAMA PC TIENE UNA AMPLITUD DE 13 BITS  EL BIT MAS BAJO PROVIENE DEL REGISTOR PCL EL CUAL ES LEIBLE Y ESCRIBIBLE 
+;*****************************************************************************************************
+;Organización de la memoria
+	    ORG	0
+	    GOTO INICIO ;Ir al inicio del programa
+	    ORG 5 ; Arranque desde la primera pagina memoria 5
+;*****************************************************************************************
+DELAY	    MOVLW   .5;[(3N+1)M+3M+1]P+3P+1=(1000000)Este es el tiempo para un segundo
+	    MOVWF   CONTA3	; [3N+1]M+3M+1 = Este es para una anidación doble, milisegundos
+CICLO3	    MOVLW   .255	; 3N+1 = Este es para anidación sencilla, microsegundos
+	    MOVWF   CONTA2
+CICLO2	    MOVLW   .255	;B'0000000'BINARIO,  .19 Decimal  , 0xff  Hexa
+	    MOVWF   CONTA1
+CICLO1	    DECFSZ  CONTA1,F
+	    GOTO    $-1		; GOTO CICLO1
+	    DECFSZ  CONTA2,F
+	    GOTO    CICLO2		; GOTO CICLO2
+	    DECFSZ  CONTA3,F
+	    GOTO    $-9		; GOTO CICLO3
+	    RETURN
+;**********************************************************************************************	    	    
+GIRO   MOVFW NPASO     ;MUEVA LA INFORMACION EN NPASO A W
+       CALL TABLA       ;LLAMA LA SUBRUTINA TABLA
+       MOVWF PORTB      ;MUEVE LA INFORMACION EN W AL PUERTO B
+       CALL DELAY       ;LLAMA EL RETARDO
+       INCF NPASO,F     ;SUMA UN 1 A LA VARIABALE NPASO Y GUARDA LA INFORMACION EN NPASO
+       MOVLW 0X04       ;MUEVE EL NUMERO 4 A W
+       XORWF NPASO,W    ;(OPERACION XOR)SI EL VALOR GUARDADO EN W Y EN NPASO SON IGUALES ME DA UN 0 DE LO CONTRARIO UN 1 Y ALMACENA EL RESULTADO EN W
+       BTFSS STATUS,2   ;SI HAY UN 0 EN Z(BIT 2 DEL REGISTRO STATUS)ES 1 Y SI ES 1 ES UN 0
+       GOTO TEST        ;ME DIRIGE A LA ETIQUETA TEST SI EN EL BIT 2 DEL REGISTRO STATUS HAY UN 0
+       GOTO STEP        ;ME DIRIGE A LA ETIQUETA STEP SI EN EL BIT 2 DEL REGISTRO STATUS HAY UN 1
+       
+	
+
+       
+INICIO      BANK0
+	    CLRF	PORTA; Limpiamos puertoB para que no hallan señales.
+	    CLRF        PORTB;
+	    BANK1	    ; Ir al banco 1
+	    MOVLW	B'00000110';
+	    MOVWF	ADCON1;
+	    MOVLW	B'11111111';Definimos entradas y salidas
+	    MOVWF	TRISA	   ;;rb7,rb6,rb5,rb4,rb3,rb2,rb1,rb0
+	    MOVLW       B'11110000';
+	    MOVWF       TRISB;
+	    BANK0  
+STEP   
+        CLRF  NPASO	    ;LIMPIA LA VARIABLE NPASO
+TEST    BTFSS PORTA,0       ;COMPRUEBA SI SE ENCUENTRA UN 1 EN EL BIT O DEL PUERTO A Y SI LO HAY SALTA UNA LINEA
+        GOTO  STEP          ;SI HAY UN 0 EN EL PUERTO A ME DEVUELVE A LA ETIQUETA STEP
+        GOTO  GIRO          ;SI HAY UN 1 EN PUERTO A SALTA LA LINEA ANTERIOR Y ME ENVIA A LA SUBRUTINA GIRO
+
+
+TABLA    ADDWF  PCL,F           ;SUMA LA INFORMACION DE W(LA MISMA QUE ESTA EN NPASO) Y LA SUMA A LA VARIABLE PCL Y LO GUARDE EN ESTA MISMA
+         RETLW B'00001100'     ;SI EL VALOR EN PCL ES 0 GUARDA EL LITERAL MOSTRADO EN W
+	 RETLW B'00000110'     ;SI EL VALOR EN PCL ES 1 GUARDA EL LITERAL MOSTRADO EN W
+	 RETLW B'00000011'     ;SI EL VALOR EN PCL ES 2 GUARDA EL LITERAL MOSTRADO EN W
+	 RETLW B'00001001'     ;SI EL VALOR EN PCL ES 3 GUARDA EL LITERAL MOSTRADO EN W
+	                    ;REGRESA A GIRO        
+
+END
+	
+
+
+       
